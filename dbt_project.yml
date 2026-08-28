@@ -1,0 +1,101 @@
+name: data_vault
+version: "1.0.0"
+config-version: 2
+
+profile: data_vault
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - target
+  - dbt_packages
+
+vars:
+  # --- Data Vault 2.0 conventions -------------------------------------------------
+  # Delimiter injected between business key parts before hashing, so that
+  # ('AB', 'C') and ('A', 'BC') cannot collide. Set to "" to concatenate the
+  # parts with no separator.
+  dv_hash_delimiter: "||"
+  # Placeholder substituted for NULL business keys so that a NULL never silently
+  # collides with an empty string.
+  dv_null_placeholder: "^^"
+  # Timezone used for load_timestamp, matching CURRENT_DATETIME('Asia/Jakarta').
+  dv_timezone: "Asia/Jakarta"
+
+models:
+  data_vault:
+    bronze:
+      +materialized: table
+      +schema: bronze
+    silver:
+      +materialized: incremental
+      +schema: silver
+      +on_schema_change: append_new_columns
+    gold:
+      +materialized: table
+      +schema: gold
+
+seeds:
+  data_vault:
+    +schema: bronze
+    +quote_columns: false
+    raw_superstore:
+      # Everything lands as text; bronze owns the casting so that a malformed
+      # source value fails in a model we control rather than inside dbt seed.
+      +column_types:
+        row_id: varchar(50)
+        order_id: varchar(50)
+        order_date: varchar(20)
+        ship_date: varchar(20)
+        ship_mode: varchar(50)
+        customer_id: varchar(50)
+        customer_name: varchar(100)
+        segment: varchar(50)
+        country_code: varchar(10)
+        country: varchar(100)
+        city: varchar(100)
+        state: varchar(100)
+        state_code: varchar(10)
+        postal_code: varchar(20)
+        region: varchar(50)
+        product_id: varchar(50)
+        category: varchar(50)
+        sub_category: varchar(50)
+        product_name: varchar(255)
+        sales: varchar(30)
+        quantity: varchar(30)
+        discount: varchar(30)
+        profit: varchar(30)
+    raw_period:
+      +column_types:
+        date_actual: date
+        date_actual_time: timestamp
+        day_suffix: varchar(10)
+        day_name: varchar(20)
+        day_of_week: integer
+        day_of_month: integer
+        day_of_quarter: integer
+        day_of_year: integer
+        week_of_month: integer
+        week_of_year: integer
+        week_of_year_iso: varchar(10)
+        month_actual: integer
+        month_name: varchar(20)
+        month_name_abbreviated: varchar(10)
+        quarter_actual: integer
+        quarter_name: varchar(10)
+        year_actual: integer
+        first_day_of_week: date
+        last_day_of_week: date
+        first_day_of_month: date
+        last_day_of_month: date
+        first_day_of_quarter: date
+        last_day_of_quarter: date
+        first_day_of_year: date
+        last_day_of_year: date
+        weekend_flag: integer

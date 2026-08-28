@@ -1,0 +1,18 @@
+version: 2
+
+seeds:
+  - name: raw_superstore
+    description: >
+      Superstore order lines, loaded verbatim from CSV. Every column is text
+      here; bronze_superstore owns the casting.
+    columns:
+      - name: row_id
+        description: Unique identifier of the order line in the source file.
+        data_tests: [unique, not_null]
+
+  - name: raw_period
+    description: Calendar covering 2000-2050, one row per date.
+    columns:
+      - name: date_actual
+        description: The calendar date. Primary key of the file.
+        data_tests: [unique, not_null]

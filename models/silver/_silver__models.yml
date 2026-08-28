@@ -1,0 +1,177 @@
+version: 2
+
+models:
+  # --- Hubs: one row per business key, insert-only -----------------------------
+  - name: hub_customer
+    description: Distinct customers. Grain, one row per customer_id.
+    columns:
+      - name: hmd5_customer
+        description: MD5 of customer_id. Surrogate key used by links and satellites.
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests: [unique, not_null]
+      - name: load_timestamp
+        data_tests: [not_null]
+      - name: record_source
+        data_tests: [not_null]
+
+  - name: hub_product
+    description: Distinct products. Grain, one row per product_id.
+    columns:
+      - name: hmd5_product_code
+        data_tests: [unique, not_null]
+      - name: product_id
+        data_tests: [unique, not_null]
+      - name: record_source
+        data_tests: [not_null]
+
+  - name: hub_country
+    description: Distinct countries. Grain, one row per country_code.
+    columns:
+      - name: hmd5_country_code
+        data_tests: [unique, not_null]
+      - name: country_code
+        data_tests: [unique, not_null]
+      - name: record_source
+        data_tests: [not_null]
+
+  - name: hub_state
+    description: Distinct states. Grain, one row per state_code.
+    columns:
+      - name: hmd5_state_code
+        data_tests: [unique, not_null]
+      - name: state_code
+        data_tests: [unique, not_null]
+      - name: record_source
+        data_tests: [not_null]
+
+  # --- Link: the relationship the business transacts on ------------------------
+  - name: link_superstore
+    description: >
+      Customer x country x state x product. One row per distinct combination
+      ever observed; the transaction detail hangs off satellite_superstore.
+    columns:
+      - name: lmd5_superstore
+        description: MD5 over the four business keys, in declaration order.
+        data_tests: [unique, not_null]
+      - name: hmd5_customer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('hub_customer')
+                field: hmd5_customer
+      - name: hmd5_country_code
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('hub_country')
+                field: hmd5_country_code
+      - name: hmd5_state_code
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('hub_state')
+                field: hmd5_state_code
+      - name: hmd5_product_code
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('hub_product')
+                field: hmd5_product_code
+
+  # --- Satellites: append-only descriptive history -----------------------------
+  - name: satellite_superstore
+    description: >
+      Order-line detail hanging off link_superstore. Multi-active: row_id
+      widens the grain, because one link key covers many order lines.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [lmd5_superstore, row_id, md5_diff]
+    columns:
+      - name: lmd5_superstore
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('link_superstore')
+                field: lmd5_superstore
+      - name: md5_diff
+        description: MD5 over parent keys plus payload. Detects attribute change.
+        data_tests: [not_null]
+      - name: row_id
+        data_tests: [not_null]
+
+  - name: satellite_superstore_customer
+    description: Customer descriptors. Grain, one row per customer per version.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [hmd5_customer, md5_diff]
+    columns:
+      - name: hmd5_customer
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('hub_customer')
+                field: hmd5_customer
+      - name: md5_diff
+        data_tests: [not_null]
+
+  - name: satellite_superstore_product
+    description: Product descriptors. Grain, one row per product per version.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [hmd5_product_code, md5_diff]
+    columns:
+      - name: hmd5_product_code
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('hub_product')
+                field: hmd5_product_code
+      - name: md5_diff
+        data_tests: [not_null]
+
+  - name: satellite_superstore_country
+    description: Country descriptors. Grain, one row per country per version.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [hmd5_country_code, md5_diff]
+    columns:
+      - name: hmd5_country_code
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('hub_country')
+                field: hmd5_country_code
+      - name: md5_diff
+        data_tests: [not_null]
+
+  - name: satellite_superstore_state
+    description: >
+      Geography descriptors. Multi-active on city and postal_code, which vary
+      within a state; state and region are the only true state-level payload.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [hmd5_state_code, city, postal_code, md5_diff]
+    columns:
+      - name: hmd5_state_code
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('hub_state')
+                field: hmd5_state_code
+      - name: md5_diff
+        data_tests: [not_null]

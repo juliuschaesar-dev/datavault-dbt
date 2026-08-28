@@ -1,0 +1,13 @@
+data_vault:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('DBT_HOST', 'postgres') }}"
+      user: "{{ env_var('DBT_USER', 'dbt') }}"
+      password: "{{ env_var('DBT_PASSWORD', 'dbt') }}"
+      port: "{{ env_var('DBT_PORT', 5432) | int }}"
+      dbname: "{{ env_var('DBT_DBNAME', 'warehouse') }}"
+      schema: "{{ env_var('DBT_SCHEMA', 'public') }}"
+      threads: "{{ env_var('DBT_THREADS', 4) | int }}"
+      keepalives_idle: 0

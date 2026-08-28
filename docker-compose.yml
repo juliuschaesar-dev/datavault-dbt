@@ -1,0 +1,45 @@
+# Credentials come from .env (see .env.example). Defaults after ":-" keep the
+# stack runnable if that file is missing.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dv_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dbt}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dbt}
+      POSTGRES_DB: ${POSTGRES_DB:-warehouse}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - dv_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dbt} -d ${POSTGRES_DB:-warehouse}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  dbt:
+    build: .
+    container_name: dv_dbt
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Not read from .env: inside the compose network the database is reached
+      # by service name, never by the host's localhost.
+      DBT_HOST: postgres
+      DBT_PORT: 5432
+      DBT_USER: ${DBT_USER:-dbt}
+      DBT_PASSWORD: ${DBT_PASSWORD:-dbt}
+      DBT_DBNAME: ${DBT_DBNAME:-warehouse}
+      DBT_SCHEMA: ${DBT_SCHEMA:-public}
+      DBT_THREADS: ${DBT_THREADS:-4}
+    volumes:
+      - .:/usr/app
+    working_dir: /usr/app
+    ports:
+      - "8080:8080"
+
+volumes:
+  dv_postgres_data:

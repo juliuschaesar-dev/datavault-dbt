@@ -1,0 +1,142 @@
+version: 2
+
+models:
+  - name: dim_customer
+    description: Conformed customer dimension. Grain, one row per customer_id.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+      - name: customer_name
+        data_tests: [not_null]
+      - name: segment
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Consumer', 'Corporate', 'Home Office']
+
+  - name: dim_product
+    description: Conformed product dimension. Grain, one row per product_id.
+    columns:
+      - name: product_id
+        data_tests: [unique, not_null]
+      - name: product_name
+        data_tests: [not_null]
+      - name: category
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Furniture', 'Office Supplies', 'Technology']
+      - name: sub_category
+        data_tests: [not_null]
+
+  - name: dim_country
+    description: Conformed country dimension. Grain, one row per country_code.
+    columns:
+      - name: country_code
+        data_tests: [unique, not_null]
+      - name: country
+        data_tests: [not_null]
+
+  - name: dim_state
+    description: >
+      Conformed state dimension. Grain, one row per state_code. city and
+      postal_code are deliberately absent -- they are transaction attributes
+      and live on fact_superstore.
+    columns:
+      - name: state_code
+        data_tests: [unique, not_null]
+      - name: state
+        data_tests: [not_null]
+      - name: region
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Central', 'East', 'South', 'West']
+
+  - name: dim_period
+    description: >
+      Calendar dimension, loaded straight from bronze. Does not pass through
+      the vault: a date has no mutable business key and no history to track.
+    columns:
+      - name: date_key
+        description: The calendar date. Joins to fact order_date / ship_date.
+        data_tests: [unique, not_null]
+      - name: year_actual
+        data_tests: [not_null]
+      - name: is_weekend
+        data_tests: [not_null]
+
+  - name: fact_superstore
+    description: >
+      Transaction fact at order-line grain, projected entirely from the vault
+      (satellite -> link -> hubs). Never re-reads bronze.
+    columns:
+      - name: row_id
+        data_tests: [unique, not_null]
+      - name: order_id
+        data_tests: [not_null]
+      - name: customer_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_id
+      - name: product_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_product')
+                field: product_id
+      - name: country_code
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_country')
+                field: country_code
+      - name: state_code
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_state')
+                field: state_code
+      - name: order_date
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_period')
+                field: date_key
+      - name: ship_date
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_period')
+                field: date_key
+      - name: sales
+        data_tests: [not_null]
+      - name: quantity
+        data_tests: [not_null]
+
+  - name: dm_superstore
+    description: >
+      Flat consumption mart. Same grain as fact_superstore -- every dimension
+      joined here is keyed on exactly the join column, so no row multiplies.
+    columns:
+      - name: row_id
+        data_tests: [unique, not_null]
+      - name: customer_name
+        data_tests: [not_null]
+      - name: product_name
+        data_tests: [not_null]
+      - name: region
+        data_tests: [not_null]
+      - name: order_year
+        data_tests: [not_null]
