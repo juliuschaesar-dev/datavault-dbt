@@ -149,9 +149,7 @@ models rebuild.
 ### Running part of it
 
 `dbt build` runs models and tests together. To run models on their own, or to
-work on one layer without rebuilding everything, select a subset. A leading `+`
-selects everything a model depends on; a trailing `+` selects everything that
-depends on it:
+work on one layer without rebuilding everything:
 
 ```bash
 docker compose exec dbt dbt run
@@ -160,11 +158,6 @@ docker compose exec dbt dbt test
 docker compose exec dbt dbt run --select bronze
 docker compose exec dbt dbt run --select silver
 docker compose exec dbt dbt run --select gold
-docker compose exec dbt dbt run --select silver.hubs
-
-docker compose exec dbt dbt run --select hub_customer
-docker compose exec dbt dbt run --select +fact_superstore
-docker compose exec dbt dbt run --select bronze_superstore+
 ```
 
 Silver is incremental, so `dbt run` there appends rather than rebuilds. Renaming
@@ -174,6 +167,29 @@ left behind and every row looks new:
 ```bash
 docker compose exec dbt dbt run --full-refresh --select silver
 ```
+
+### dbt docs, as an alternative
+
+[docs/architecture.md](docs/architecture.md) is written by hand and explains
+*why* the warehouse is shaped the way it is -- the reasoning behind the grain
+choices, the trade-offs, what would break if they changed.
+
+dbt's built-in docs site answers a different question: *what is there right
+now*. Generated from the project, so it cannot drift from the code -- an
+interactive lineage graph, every model's compiled SQL, and the descriptions
+from the `_*__models.yml` files.
+
+```bash
+docker compose exec dbt dbt docs generate
+docker compose exec -d dbt dbt docs serve --host 0.0.0.0 --port 8080 --no-browser
+```
+
+Then open <http://localhost:8080>. The `--host 0.0.0.0` is required: dbt binds
+to loopback by default, which inside a container is unreachable from your
+machine. Stop the server with `docker compose restart dbt`.
+
+Use the hand-written docs to understand the design, and `dbt docs` to explore
+the build as it stands.
 
 ---
 
