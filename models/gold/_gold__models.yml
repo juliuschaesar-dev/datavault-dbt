@@ -40,21 +40,12 @@ models:
         data_tests: [not_null]
 
   - name: dim_state
-    description: >
-      Conformed state dimension. Grain, one row per state_code. city and
-      postal_code are deliberately absent -- they are transaction attributes
-      and live on fact_superstore.
+    description: Conformed state dimension. Grain, one row per state_code.
     columns:
       - name: state_code
         data_tests: [unique, not_null]
       - name: state
         data_tests: [not_null]
-      - name: region
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: ['Central', 'East', 'South', 'West']
 
   - name: dim_period
     description: >
@@ -120,6 +111,12 @@ models:
               arguments:
                 to: ref('dim_period')
                 field: date_key
+      - name: region
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Central', 'East', 'South', 'West']
       - name: sales
         data_tests: [not_null]
       - name: quantity

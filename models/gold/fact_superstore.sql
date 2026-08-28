@@ -11,7 +11,7 @@
 
 with current_transaction as (
 
-    {{ dv_satellite_current(ref('satellite_superstore'), 'lmd5_superstore', ['row_id']) }}
+    {{ dv_satellite_current(ref('satellite_superstore')) }}
 
 )
 
@@ -25,6 +25,7 @@ select
     sale.order_date,
     sale.ship_date,
     sale.ship_mode,
+    sale.region,
     sale.city,
     sale.postal_code,
     sale.sales,

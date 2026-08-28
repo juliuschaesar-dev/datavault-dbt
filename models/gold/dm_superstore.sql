@@ -25,7 +25,7 @@ select
     dim_country.country,
     fact.state_code,
     dim_state.state,
-    dim_state.region,
+    fact.region,
     fact.city,
     fact.postal_code,
 

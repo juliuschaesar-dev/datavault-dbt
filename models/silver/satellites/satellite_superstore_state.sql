@@ -1,18 +1,14 @@
 {#
-    Geography satellite on hub_state.
+    State descriptors. Grain, one row per state code.
 
-    city and postal_code vary within a state (up to 81 cities for one state
-    code), so they widen the grain here rather than pretending to be
-    state-level attributes. dim_state publishes only what state_code truly
-    determines -- state and region -- and the fact carries city and postal_code
-    as degenerate dimensions.
+    state is the only attribute a state code determines on its own -- 1:1
+    across all 49 codes -- which is what makes dim_state one row per key.
 #}
 
 {{ dv_satellite(
     source_relation      = ref('bronze_superstore'),
     parent_hash_key      = 'hmd5_state_code',
     parent_business_keys = ['state_code'],
-    child_keys           = ['city', 'postal_code'],
-    payload              = ['state', 'region'],
+    payload              = ['state'],
     record_source        = 'bronze_superstore'
 ) }}

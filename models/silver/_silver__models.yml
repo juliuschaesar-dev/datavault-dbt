@@ -103,6 +103,15 @@ models:
       - name: md5_diff
         description: MD5 over parent keys plus payload. Detects attribute change.
         data_tests: [not_null]
+      - name: meta_is_active
+        description: >
+          1 for the version currently in force, 0 once superseded. Kept true by
+          the dv_deactivate_superseded() post-hook.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
       - name: row_id
         data_tests: [not_null]
 
@@ -122,6 +131,15 @@ models:
                 field: hmd5_customer
       - name: md5_diff
         data_tests: [not_null]
+      - name: meta_is_active
+        description: >
+          1 for the version currently in force, 0 once superseded. Kept true by
+          the dv_deactivate_superseded() post-hook.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
 
   - name: satellite_superstore_product
     description: Product descriptors. Grain, one row per product per version.
@@ -139,6 +157,15 @@ models:
                 field: hmd5_product_code
       - name: md5_diff
         data_tests: [not_null]
+      - name: meta_is_active
+        description: >
+          1 for the version currently in force, 0 once superseded. Kept true by
+          the dv_deactivate_superseded() post-hook.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
 
   - name: satellite_superstore_country
     description: Country descriptors. Grain, one row per country per version.
@@ -156,15 +183,22 @@ models:
                 field: hmd5_country_code
       - name: md5_diff
         data_tests: [not_null]
+      - name: meta_is_active
+        description: >
+          1 for the version currently in force, 0 once superseded. Kept true by
+          the dv_deactivate_superseded() post-hook.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
 
   - name: satellite_superstore_state
-    description: >
-      Geography descriptors. Multi-active on city and postal_code, which vary
-      within a state; state and region are the only true state-level payload.
+    description: State descriptors. Grain, one row per state per version.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
-            combination_of_columns: [hmd5_state_code, city, postal_code, md5_diff]
+            combination_of_columns: [hmd5_state_code, md5_diff]
     columns:
       - name: hmd5_state_code
         data_tests:
@@ -175,3 +209,12 @@ models:
                 field: hmd5_state_code
       - name: md5_diff
         data_tests: [not_null]
+      - name: meta_is_active
+        description: >
+          1 for the version currently in force, 0 once superseded. Kept true by
+          the dv_deactivate_superseded() post-hook.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]

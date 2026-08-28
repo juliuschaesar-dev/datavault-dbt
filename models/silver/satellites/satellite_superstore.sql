@@ -5,9 +5,8 @@
     so row_id widens the grain -- this is a multi-active satellite. Without it,
     9,994 order lines would collapse to one surviving row per link.
 
-    city and postal_code ride here rather than on the geography satellite: a
-    customer can ship to a different city on each order, so they describe the
-    transaction, not the state.
+    region, city and postal_code describe where an individual order went, so
+    they belong to the transaction rather than to any hub.
 #}
 
 {{ dv_satellite(
@@ -20,6 +19,7 @@
         'order_date',
         'ship_date',
         'ship_mode',
+        'region',
         'city',
         'postal_code',
         'sales',

@@ -41,7 +41,7 @@ flowchart LR
             scu["satellite_superstore_customer<br/>793"]
             spr["satellite_superstore_product<br/>1,862"]
             sco["satellite_superstore_country<br/>1"]
-            sst["satellite_superstore_state<br/>632"]
+            sst["satellite_superstore_state<br/>49"]
         end
     end
 
@@ -141,6 +141,7 @@ erDiagram
         date order_date
         date ship_date
         text ship_mode
+        text region
         text city
         text postal_code
         numeric sales
@@ -149,6 +150,7 @@ erDiagram
         numeric profit
         timestamp load_timestamp
         text record_source
+        int meta_is_active "1 = version in force"
     }
 
     satellite_superstore_customer {
@@ -158,6 +160,7 @@ erDiagram
         text segment
         timestamp load_timestamp
         text record_source
+        int meta_is_active "1 = version in force"
     }
 ```
 
@@ -199,6 +202,7 @@ erDiagram
         date order_date FK
         date ship_date FK
         text ship_mode
+        text region "degenerate"
         text city "degenerate"
         text postal_code "degenerate"
         numeric sales
@@ -210,7 +214,6 @@ erDiagram
     dim_state {
         text state_code PK
         text state
-        text region
     }
 
     dim_period {
@@ -223,16 +226,14 @@ erDiagram
     }
 ```
 
-### Why `city` and `postal_code` sit on the fact
+### Why the dimensions are one row per key
 
-They came out of `satellite_superstore_state`, but a state code maps to as many
-as **81 cities** in this dataset. A `dim_state` at that grain would fan the fact
-out on every join and inflate every measure.
+Every dimension here publishes only attributes its business key determines --
+`state_code -> state` is 1:1 across all 49 codes, so `dim_state` is 49 rows.
+That is what lets a fact join it on the key alone without multiplying.
 
-`state_code -> state, region` is 1:1 across all 49 codes, so those two stay in
-the dimension and the two transaction-level attributes become degenerate
-dimensions on the fact. The satellite still stores all four — nothing is lost,
-and `assert_mart_reconciles_to_fact` is what keeps this honest.
+`assert_mart_reconciles_to_fact` is what keeps this honest — it fails the
+moment a dimension join multiplies a row.
 
 ---
 
@@ -248,12 +249,18 @@ A second `dbt build` is a no-op against silver: all ten vault models report the
 same row counts, because every hub anti-joins on its hash key and every
 satellite anti-joins on `(parent_hash, md5_diff)`.
 
+Satellites also carry `meta_is_active` -- 1 for the version in force, 0 once
+superseded. It is stored rather than derived, and the `dv_deactivate_superseded()`
+post-hook demotes whatever each load supersedes, so the flag cannot go stale.
+`assert_satellite_has_one_active_version` checks all five satellites hold
+exactly one active row per grain.
+
 ```mermaid
 flowchart LR
     A["dbt seed"] --> B["bronze<br/>rebuild"]
     B --> C["silver<br/>append what is new"]
     C --> D["gold<br/>rebuild from vault"]
-    D --> E["119 data tests<br/>3 of them reconciliation"]
+    D --> E["129 data tests<br/>3 of them reconciliation"]
 ```
 
 The reconciliation tests are the ones that matter: row counts and

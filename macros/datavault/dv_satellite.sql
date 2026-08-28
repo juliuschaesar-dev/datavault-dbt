@@ -7,8 +7,11 @@
 
     Satellites are append-only: a changed attribute is a new row, never an
     update, so the full history stays recoverable and a re-run cannot alter
-    what is already loaded. Use dv_satellite_current() to read the live
-    version.
+    what is already loaded.
+
+    Rows land with meta_is_active = 1, and the dv_deactivate_superseded()
+    post-hook demotes whatever this load supersedes -- so exactly one row per
+    grain ever claims to be in force. Read them with dv_satellite_current().
 
     Args:
         source_relation:      ref() of the staged source to load from.
@@ -35,6 +38,10 @@
 
 {%- set parent_business_keys = [parent_business_keys] if parent_business_keys is string else parent_business_keys -%}
 {%- set descriptors = child_keys + payload -%}
+
+{{ config(
+    post_hook = "{{ dv_deactivate_superseded('" ~ parent_hash_key ~ "', " ~ child_keys ~ ") }}"
+) }}
 {%- set hash_diff_columns = parent_business_keys + descriptors -%}
 
 with source_rows as (
@@ -60,7 +67,8 @@ hashed as (
         {{ column }},
         {% endfor -%}
         {{ dv_load_timestamp() }} as load_timestamp,
-        '{{ record_source }}' as record_source
+        '{{ record_source }}' as record_source,
+        1 as meta_is_active
     from source_rows
 
 )
@@ -80,34 +88,50 @@ where not exists (
 
 
 {#
-    Live rows of a satellite: the newest version per grain, flagged
-    meta_is_active = 1.
+    Live rows of a satellite: the version currently in force for each grain.
 
-    The flag is derived at read time rather than stored. A stored flag has to be
-    back-dated on every load, and any load that misses that step leaves two rows
-    claiming to be current.
+    meta_is_active is stored on the row -- 1 for the version in force, 0 once
+    superseded -- and kept true by dv_deactivate_superseded(), which runs after
+    every satellite load.
 
     Args:
         satellite_relation: ref() of the satellite to read.
-        parent_hash_key:    the satellite's parent MD5 column.
-        child_keys:         extra grain columns, matching the dv_satellite call.
 #}
-{% macro dv_satellite_current(satellite_relation, parent_hash_key, child_keys=[]) -%}
+{% macro dv_satellite_current(satellite_relation) -%}
 
-{%- set grain = [parent_hash_key] + child_keys -%}
+    select *
+    from {{ satellite_relation }}
+    where meta_is_active = 1
 
-    select
-        versioned.*,
-        1 as meta_is_active
-    from (
-        select
-            satellite.*,
-            row_number() over (
-                partition by {{ grain | join(', ') }}
-                order by load_timestamp desc, md5_diff desc
-            ) as meta_version_rank
-        from {{ satellite_relation }} as satellite
-    ) as versioned
-    where versioned.meta_version_rank = 1
+{%- endmacro %}
+
+
+{#
+    Demote every satellite row that a newer version has superseded.
+
+    Runs as a post-hook on each satellite. A row stays active only while no
+    other row shares its grain with a later (load_timestamp, md5_diff) -- the
+    same ordering the loader inserts by, so the winner is deterministic even
+    when two versions arrive in one load and share a timestamp.
+
+    Args:
+        parent_hash_key: the satellite's parent MD5 column.
+        child_keys:      extra grain columns, matching the dv_satellite call.
+#}
+{% macro dv_deactivate_superseded(parent_hash_key, child_keys=[]) -%}
+
+    update {{ this }} as superseded
+    set meta_is_active = 0
+    where superseded.meta_is_active = 1
+      and exists (
+          select 1
+          from {{ this }} as newer
+          where newer.{{ parent_hash_key }} = superseded.{{ parent_hash_key }}
+            {%- for child_key in child_keys %}
+            and newer.{{ child_key }} is not distinct from superseded.{{ child_key }}
+            {%- endfor %}
+            and (newer.load_timestamp, newer.md5_diff)
+              > (superseded.load_timestamp, superseded.md5_diff)
+      )
 
 {%- endmacro %}
