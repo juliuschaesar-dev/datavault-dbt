@@ -1,5 +1,5 @@
 {#
-    The calendar bypasses the vault.
+    The calendar bypasses data vault.
 
     A date has no business key that can change, no source system to reconcile
     and no history to track, so a hub/satellite pair would add ceremony without

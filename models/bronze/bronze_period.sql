@@ -3,7 +3,7 @@
 
     The seed is already typed by dbt_project.yml, so this model only stamps the
     audit columns. dim_period carries no business keys and no history, so it
-    bypasses the vault and goes straight from here to gold.
+    bypasses data vault and goes straight from here to gold.
 #}
 
 select

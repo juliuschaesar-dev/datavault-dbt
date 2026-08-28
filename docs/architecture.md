@@ -72,7 +72,7 @@ flowchart LR
     hst --> dst
     sst --> dst
 
-    bp -- "bypasses the vault" --> dpe
+    bp -- "bypasses data vault" --> dpe
 
     stx --> fct
     lnk --> fct
