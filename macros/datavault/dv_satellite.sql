@@ -15,10 +15,14 @@
 
     A row also has no way to record that its business key vanished from the
     source: an insert-only load only ever sees new data, never a negative
-    signal. The dv_track_deletions() post-hook closes that gap by comparing
-    the active grains here against the grains present in record_source right
-    now, and stamping is_deleted on whatever no longer appears -- undoing it
-    too, if a key that had gone quiet reappears. Read live, present rows with
+    signal. The dv_track_deletions() post-hook closes that gap -- as another
+    insert, not a rewrite of the row it concerns: when an active grain goes
+    missing from record_source, it inserts a new row carrying the same
+    attributes with is_deleted = 1 and a fresh load_timestamp, so the moment
+    the deletion was noticed is itself part of the history. dv_deactivate_superseded()
+    then demotes whatever that insert supersedes, the same as it would for any
+    other new row. A grain that reappears with its old attributes unchanged
+    gets the same treatment in reverse. Read live, present rows with
     dv_satellite_current().
 
     Args:
@@ -49,9 +53,9 @@
 
 {{ config(
     post_hook = [
-        "{{ dv_deactivate_superseded('" ~ parent_hash_key ~ "', " ~ child_keys ~ ") }}",
         "{{ dv_track_deletions('" ~ record_source ~ "', '" ~ parent_hash_key ~ "', "
-            ~ parent_business_keys ~ ", " ~ child_keys ~ ") }}"
+            ~ parent_business_keys ~ ", " ~ payload ~ ", " ~ child_keys ~ ") }}",
+        "{{ dv_deactivate_superseded('" ~ parent_hash_key ~ "', " ~ child_keys ~ ") }}"
     ]
 ) }}
 {%- set hash_diff_columns = parent_business_keys + descriptors -%}
@@ -152,14 +156,32 @@ where not exists (
 
 
 {#
-    Flag every active row whose grain no longer appears in the source.
+    Insert a new row for every active grain whose presence in the source has
+    flipped since the last load.
 
-    Runs as a post-hook on each satellite, after dv_deactivate_superseded().
-    Every dbt run re-extracts the full source into bronze, so "grain present in
-    this load's source" is a complete answer, not a delta -- an active row
-    absent from it was deleted upstream. is_deleted is cleared the same way if
-    a grain that had gone quiet reappears, so a delete later reversed at the
-    source un-hides the row rather than leaving it flagged forever.
+    Runs as a post-hook on each satellite, before dv_deactivate_superseded() --
+    that ordering matters, because these inserts need demoting by the very
+    same pass that demotes everything else, not by a rule of their own. Every
+    dbt run re-extracts the full source into bronze, so "grain present in this
+    load's source" is a complete answer, not a delta.
+
+    Two directions, both inserts, neither an update:
+
+    - An active, present row (is_deleted = 0) whose grain has gone missing
+      gets a new row: same attributes, is_deleted = 1, load_timestamp = now.
+      The row being superseded is untouched -- the moment the deletion was
+      noticed becomes its own entry in the history, not a rewrite of the row
+      it concerns.
+    - An active, deleted row (is_deleted = 1) whose grain has reappeared with
+      the very same attributes as before gets the mirror image: is_deleted = 0.
+      (Attributes that changed while the grain was gone need no help here --
+      dv_satellite's own insert already picks up a new hash for those.)
+
+    md5_diff on these rows is derived from the row they supersede rather than
+    recomputed from source, since deleted data has no current source row to
+    hash; deriving it also guarantees a change of state always changes the
+    hash, which is what lets these rows exist as siblings of the ones they
+    replace under a (grain, md5_diff) uniqueness test.
 
     Args:
         record_source:         model name dv_satellite loaded from; re-resolved
@@ -168,12 +190,13 @@ where not exists (
                                string does not survive dbt's early config pass.
         parent_hash_key:      the satellite's parent MD5 column.
         parent_business_keys: natural keys that produce parent_hash_key.
+        payload:               descriptive columns, matching the dv_satellite call.
         child_keys:           extra grain columns, matching the dv_satellite call.
 #}
-{% macro dv_track_deletions(record_source, parent_hash_key, parent_business_keys, child_keys=[]) -%}
+{% macro dv_track_deletions(record_source, parent_hash_key, parent_business_keys, payload, child_keys=[]) -%}
 
 {%- set parent_business_keys = [parent_business_keys] if parent_business_keys is string else parent_business_keys -%}
-{%- set grain_keys = [parent_hash_key] + child_keys -%}
+{%- set descriptors = child_keys + payload -%}
 {%- set source_relation = ref(record_source) -%}
 
 with current_source_grain as (
@@ -188,23 +211,66 @@ with current_source_grain as (
 
 )
 
-update {{ this }} as satellite
-set is_deleted = case when source.{{ parent_hash_key }} is null then 1 else 0 end
-from (
-    select distinct {{ grain_keys | join(', ') }}
-    from {{ this }}
-    where meta_is_active = 1
-) as active_grain
+insert into {{ this }} (
+    {{ parent_hash_key }},
+    md5_diff,
+    {% for column in descriptors -%}
+    {{ column }},
+    {% endfor -%}
+    load_timestamp,
+    record_source,
+    meta_is_active,
+    is_deleted
+)
+select
+    active.{{ parent_hash_key }},
+    md5(active.md5_diff || '|deleted') as md5_diff,
+    {% for column in descriptors -%}
+    active.{{ column }},
+    {% endfor -%}
+    {{ dv_load_timestamp() }} as load_timestamp,
+    active.record_source,
+    1 as meta_is_active,
+    1 as is_deleted
+from {{ this }} as active
 left join current_source_grain as source
-    on source.{{ parent_hash_key }} = active_grain.{{ parent_hash_key }}
+    on source.{{ parent_hash_key }} = active.{{ parent_hash_key }}
     {%- for child_key in child_keys %}
-    and source.{{ child_key }} is not distinct from active_grain.{{ child_key }}
+    and source.{{ child_key }} is not distinct from active.{{ child_key }}
     {%- endfor %}
-where satellite.{{ parent_hash_key }} = active_grain.{{ parent_hash_key }}
-  {%- for child_key in child_keys %}
-  and satellite.{{ child_key }} is not distinct from active_grain.{{ child_key }}
-  {%- endfor %}
-  and satellite.meta_is_active = 1
-  and satellite.is_deleted is distinct from (case when source.{{ parent_hash_key }} is null then 1 else 0 end)
+where active.meta_is_active = 1
+  and active.is_deleted = 0
+  and source.{{ parent_hash_key }} is null
+
+union all
+
+select
+    active.{{ parent_hash_key }},
+    md5(active.md5_diff || '|restored') as md5_diff,
+    {% for column in descriptors -%}
+    active.{{ column }},
+    {% endfor -%}
+    {{ dv_load_timestamp() }} as load_timestamp,
+    active.record_source,
+    1 as meta_is_active,
+    0 as is_deleted
+from {{ this }} as active
+inner join current_source_grain as source
+    on source.{{ parent_hash_key }} = active.{{ parent_hash_key }}
+    {%- for child_key in child_keys %}
+    and source.{{ child_key }} is not distinct from active.{{ child_key }}
+    {%- endfor %}
+where active.meta_is_active = 1
+  and active.is_deleted = 1
+  and not exists (
+      select 1
+      from {{ this }} as fresher
+      where fresher.{{ parent_hash_key }} = active.{{ parent_hash_key }}
+        {%- for child_key in child_keys %}
+        and fresher.{{ child_key }} is not distinct from active.{{ child_key }}
+        {%- endfor %}
+        and fresher.meta_is_active = 1
+        and fresher.is_deleted = 0
+  )
 
 {%- endmacro %}
