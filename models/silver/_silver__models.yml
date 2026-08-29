@@ -112,6 +112,15 @@ models:
           - accepted_values:
               arguments:
                 values: [0, 1]
+      - name: is_deleted
+        description: >
+          1 when this grain no longer appears in its source, 0 otherwise. Kept
+          true by the dv_track_deletions() post-hook, in both directions.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
       - name: row_id
         data_tests: [not_null]
 
@@ -135,6 +144,15 @@ models:
         description: >
           1 for the version currently in force, 0 once superseded. Kept true by
           the dv_deactivate_superseded() post-hook.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+      - name: is_deleted
+        description: >
+          1 when this grain no longer appears in its source, 0 otherwise. Kept
+          true by the dv_track_deletions() post-hook, in both directions.
         data_tests:
           - not_null
           - accepted_values:
@@ -166,6 +184,15 @@ models:
           - accepted_values:
               arguments:
                 values: [0, 1]
+      - name: is_deleted
+        description: >
+          1 when this grain no longer appears in its source, 0 otherwise. Kept
+          true by the dv_track_deletions() post-hook, in both directions.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
 
   - name: satellite_superstore_country
     description: Country descriptors. Grain, one row per country per version.
@@ -192,6 +219,15 @@ models:
           - accepted_values:
               arguments:
                 values: [0, 1]
+      - name: is_deleted
+        description: >
+          1 when this grain no longer appears in its source, 0 otherwise. Kept
+          true by the dv_track_deletions() post-hook, in both directions.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
 
   - name: satellite_superstore_state
     description: State descriptors. Grain, one row per state per version.
@@ -213,6 +249,15 @@ models:
         description: >
           1 for the version currently in force, 0 once superseded. Kept true by
           the dv_deactivate_superseded() post-hook.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1]
+      - name: is_deleted
+        description: >
+          1 when this grain no longer appears in its source, 0 otherwise. Kept
+          true by the dv_track_deletions() post-hook, in both directions.
         data_tests:
           - not_null
           - accepted_values:

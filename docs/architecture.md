@@ -151,6 +151,7 @@ erDiagram
         timestamp load_timestamp
         text record_source
         int meta_is_active "1 = version in force"
+        int is_deleted "1 = gone from source"
     }
 
     satellite_superstore_customer {
@@ -161,6 +162,7 @@ erDiagram
         timestamp load_timestamp
         text record_source
         int meta_is_active "1 = version in force"
+        int is_deleted "1 = gone from source"
     }
 ```
 
@@ -255,12 +257,21 @@ post-hook demotes whatever each load supersedes, so the flag cannot go stale.
 `assert_satellite_has_one_active_version` checks all five satellites hold
 exactly one active row per grain.
 
+An insert-only load only ever sees new data, so nothing so far records a
+business key vanishing from the source. `is_deleted` closes that gap: the
+`dv_track_deletions()` post-hook compares each satellite's active grains
+against a fresh read of its source and flags whatever is missing -- clearing
+the flag again if the grain later reappears. `dv_satellite_current()` filters
+it out, so a deleted row disappears from every gold model without a row ever
+being removed. `assert_is_deleted_matches_source` re-derives the same
+comparison independently and checks it still agrees.
+
 ```mermaid
 flowchart LR
     A["dbt seed"] --> B["bronze<br/>rebuild"]
     B --> C["silver<br/>append what is new"]
     C --> D["gold<br/>rebuild from vault"]
-    D --> E["129 data tests<br/>3 of them reconciliation"]
+    D --> E["140 data tests<br/>4 of them reconciliation"]
 ```
 
 The reconciliation tests are the ones that matter: row counts and

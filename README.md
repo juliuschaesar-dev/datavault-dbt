@@ -85,9 +85,11 @@ a diff and tests, rather than inside `dbt seed`.
 
 ### Silver — `models/silver/`
 
-Insert-only Data Vault 2.0. Every model is materialized `incremental`, so a run
-appends only the keys and versions it has not seen before and a re-run changes
-nothing.
+Data Vault 2.0, materialized `incremental`. Hubs and links are pure inserts.
+Satellite data is too -- a changed attribute is a new row, never a rewrite --
+but two bookkeeping flags on each satellite row, `meta_is_active` and
+`is_deleted`, are kept current by post-hooks that run after every load. A
+re-run with nothing new upstream still leaves both untouched.
 
 | Structure | Models | Key |
 |---|---|---|
@@ -203,6 +205,7 @@ the build as it stands.
 | `assert_fact_reconciles_to_bronze` | row count and `sales` / `quantity` / `profit` totals survive the vault intact |
 | `assert_mart_reconciles_to_fact` | no dimension join in `dm_superstore` multiplies rows |
 | `assert_satellite_has_one_active_version` | `dv_satellite_current()` really does return one live row per grain |
+| `assert_is_deleted_matches_source` | `is_deleted` still agrees with a fresh read of bronze for every satellite |
 
 The reconciliation tests are the ones that matter. A fan-out in a link or a
 collapsed multi-active satellite is invisible in row-level tests and obvious in
