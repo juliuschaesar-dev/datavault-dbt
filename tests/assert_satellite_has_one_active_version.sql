@@ -9,9 +9,9 @@
 {% set satellites = [
     ('satellite_superstore',          ['lmd5_superstore', 'row_id']),
     ('satellite_superstore_customer', ['hmd5_customer']),
-    ('satellite_superstore_product',  ['hmd5_product_code']),
-    ('satellite_superstore_country',  ['hmd5_country_code']),
-    ('satellite_superstore_state',    ['hmd5_state_code'])
+    ('satellite_superstore_product',  ['hmd5_product']),
+    ('satellite_superstore_country',  ['hmd5_country']),
+    ('satellite_superstore_state',    ['hmd5_state'])
 ] %}
 
 {% for satellite_name, grain in satellites %}

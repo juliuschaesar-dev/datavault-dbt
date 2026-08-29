@@ -12,9 +12,9 @@
 {% set satellites = [
     ('satellite_superstore',          'lmd5_superstore',     ['customer_id', 'country_code', 'state_code', 'product_id'], ['row_id']),
     ('satellite_superstore_customer', 'hmd5_customer',       ['customer_id'], []),
-    ('satellite_superstore_product',  'hmd5_product_code',   ['product_id'], []),
-    ('satellite_superstore_country',  'hmd5_country_code',   ['country_code'], []),
-    ('satellite_superstore_state',    'hmd5_state_code',     ['state_code'], [])
+    ('satellite_superstore_product',  'hmd5_product',   ['product_id'], []),
+    ('satellite_superstore_country',  'hmd5_country',   ['country_code'], []),
+    ('satellite_superstore_state',    'hmd5_state',     ['state_code'], [])
 ] %}
 
 with

@@ -15,6 +15,10 @@ models:
       - name: order_date
         description: Parsed from the source's MM/DD/YYYY strings.
         data_tests: [not_null]
+      - name: ship_date
+        data_tests: [not_null]
+      - name: ship_mode
+        data_tests: [not_null]
       - name: customer_id
         description: Business key of hub_customer.
         data_tests: [not_null]
@@ -30,6 +34,10 @@ models:
       - name: sales
         data_tests: [not_null]
       - name: quantity
+        data_tests: [not_null]
+      - name: discount
+        data_tests: [not_null]
+      - name: profit
         data_tests: [not_null]
       - name: record_source
         description: Lineage tag naming the object this row was read from.

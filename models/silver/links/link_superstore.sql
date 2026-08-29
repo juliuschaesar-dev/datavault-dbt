@@ -9,9 +9,9 @@
     hash_key        = 'lmd5_superstore',
     foreign_keys    = [
         {'hash_key': 'hmd5_customer',     'business_key': 'customer_id'},
-        {'hash_key': 'hmd5_country_code', 'business_key': 'country_code'},
-        {'hash_key': 'hmd5_state_code',   'business_key': 'state_code'},
-        {'hash_key': 'hmd5_product_code', 'business_key': 'product_id'}
+        {'hash_key': 'hmd5_country', 'business_key': 'country_code'},
+        {'hash_key': 'hmd5_state',   'business_key': 'state_code'},
+        {'hash_key': 'hmd5_product', 'business_key': 'product_id'}
     ],
     record_source   = 'bronze_superstore'
 ) }}

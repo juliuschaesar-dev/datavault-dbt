@@ -7,7 +7,7 @@
 
 {{ dv_satellite(
     source_relation      = ref('bronze_superstore'),
-    parent_hash_key      = 'hmd5_state_code',
+    parent_hash_key      = 'hmd5_state',
     parent_business_keys = ['state_code'],
     payload              = ['state'],
     record_source        = 'bronze_superstore'

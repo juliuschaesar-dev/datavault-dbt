@@ -1,5 +1,29 @@
 version: 2
 
+# Shared column definitions, reused via YAML anchors below. Every satellite
+# carries the same meta_is_active / is_deleted bookkeeping columns with the
+# same description and the same two tests -- repeating that five times would
+# be the exact kind of duplication the rest of this project avoids with macros.
+_satellite_bookkeeping_columns:
+  meta_is_active: &meta_is_active_column
+    description: >
+      1 for the version currently in force, 0 once superseded. Kept true by
+      the dv_deactivate_superseded() post-hook.
+    data_tests:
+      - not_null
+      - accepted_values:
+          arguments:
+            values: [0, 1]
+  is_deleted: &is_deleted_column
+    description: >
+      1 when this grain no longer appears in its source, 0 otherwise. Kept
+      true by the dv_track_deletions() post-hook, in both directions.
+    data_tests:
+      - not_null
+      - accepted_values:
+          arguments:
+            values: [0, 1]
+
 models:
   # --- Hubs: one row per business key, insert-only -----------------------------
   - name: hub_customer
@@ -18,7 +42,7 @@ models:
   - name: hub_product
     description: Distinct products. Grain, one row per product_id.
     columns:
-      - name: hmd5_product_code
+      - name: hmd5_product
         data_tests: [unique, not_null]
       - name: product_id
         data_tests: [unique, not_null]
@@ -28,7 +52,7 @@ models:
   - name: hub_country
     description: Distinct countries. Grain, one row per country_code.
     columns:
-      - name: hmd5_country_code
+      - name: hmd5_country
         data_tests: [unique, not_null]
       - name: country_code
         data_tests: [unique, not_null]
@@ -38,7 +62,7 @@ models:
   - name: hub_state
     description: Distinct states. Grain, one row per state_code.
     columns:
-      - name: hmd5_state_code
+      - name: hmd5_state
         data_tests: [unique, not_null]
       - name: state_code
         data_tests: [unique, not_null]
@@ -61,27 +85,27 @@ models:
               arguments:
                 to: ref('hub_customer')
                 field: hmd5_customer
-      - name: hmd5_country_code
+      - name: hmd5_country
         data_tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('hub_country')
-                field: hmd5_country_code
-      - name: hmd5_state_code
+                field: hmd5_country
+      - name: hmd5_state
         data_tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('hub_state')
-                field: hmd5_state_code
-      - name: hmd5_product_code
+                field: hmd5_state
+      - name: hmd5_product
         data_tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('hub_product')
-                field: hmd5_product_code
+                field: hmd5_product
 
   # --- Satellites: append-only descriptive history -----------------------------
   - name: satellite_superstore
@@ -104,23 +128,9 @@ models:
         description: MD5 over parent keys plus payload. Detects attribute change.
         data_tests: [not_null]
       - name: meta_is_active
-        description: >
-          1 for the version currently in force, 0 once superseded. Kept true by
-          the dv_deactivate_superseded() post-hook.
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: [0, 1]
+        <<: *meta_is_active_column
       - name: is_deleted
-        description: >
-          1 when this grain no longer appears in its source, 0 otherwise. Kept
-          true by the dv_track_deletions() post-hook, in both directions.
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: [0, 1]
+        <<: *is_deleted_column
       - name: row_id
         data_tests: [not_null]
 
@@ -141,125 +151,69 @@ models:
       - name: md5_diff
         data_tests: [not_null]
       - name: meta_is_active
-        description: >
-          1 for the version currently in force, 0 once superseded. Kept true by
-          the dv_deactivate_superseded() post-hook.
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: [0, 1]
+        <<: *meta_is_active_column
       - name: is_deleted
-        description: >
-          1 when this grain no longer appears in its source, 0 otherwise. Kept
-          true by the dv_track_deletions() post-hook, in both directions.
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: [0, 1]
+        <<: *is_deleted_column
 
   - name: satellite_superstore_product
     description: Product descriptors. Grain, one row per product per version.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
-            combination_of_columns: [hmd5_product_code, md5_diff]
+            combination_of_columns: [hmd5_product, md5_diff]
     columns:
-      - name: hmd5_product_code
+      - name: hmd5_product
         data_tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('hub_product')
-                field: hmd5_product_code
+                field: hmd5_product
       - name: md5_diff
         data_tests: [not_null]
       - name: meta_is_active
-        description: >
-          1 for the version currently in force, 0 once superseded. Kept true by
-          the dv_deactivate_superseded() post-hook.
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: [0, 1]
+        <<: *meta_is_active_column
       - name: is_deleted
-        description: >
-          1 when this grain no longer appears in its source, 0 otherwise. Kept
-          true by the dv_track_deletions() post-hook, in both directions.
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: [0, 1]
+        <<: *is_deleted_column
 
   - name: satellite_superstore_country
     description: Country descriptors. Grain, one row per country per version.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
-            combination_of_columns: [hmd5_country_code, md5_diff]
+            combination_of_columns: [hmd5_country, md5_diff]
     columns:
-      - name: hmd5_country_code
+      - name: hmd5_country
         data_tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('hub_country')
-                field: hmd5_country_code
+                field: hmd5_country
       - name: md5_diff
         data_tests: [not_null]
       - name: meta_is_active
-        description: >
-          1 for the version currently in force, 0 once superseded. Kept true by
-          the dv_deactivate_superseded() post-hook.
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: [0, 1]
+        <<: *meta_is_active_column
       - name: is_deleted
-        description: >
-          1 when this grain no longer appears in its source, 0 otherwise. Kept
-          true by the dv_track_deletions() post-hook, in both directions.
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: [0, 1]
+        <<: *is_deleted_column
 
   - name: satellite_superstore_state
     description: State descriptors. Grain, one row per state per version.
     data_tests:
       - dbt_utils.unique_combination_of_columns:
           arguments:
-            combination_of_columns: [hmd5_state_code, md5_diff]
+            combination_of_columns: [hmd5_state, md5_diff]
     columns:
-      - name: hmd5_state_code
+      - name: hmd5_state
         data_tests:
           - not_null
           - relationships:
               arguments:
                 to: ref('hub_state')
-                field: hmd5_state_code
+                field: hmd5_state
       - name: md5_diff
         data_tests: [not_null]
       - name: meta_is_active
-        description: >
-          1 for the version currently in force, 0 once superseded. Kept true by
-          the dv_deactivate_superseded() post-hook.
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: [0, 1]
+        <<: *meta_is_active_column
       - name: is_deleted
-        description: >
-          1 when this grain no longer appears in its source, 0 otherwise. Kept
-          true by the dv_track_deletions() post-hook, in both directions.
-        data_tests:
-          - not_null
-          - accepted_values:
-              arguments:
-                values: [0, 1]
+        <<: *is_deleted_column

@@ -39,8 +39,8 @@ inner join {{ ref('link_superstore') }} as link
 inner join {{ ref('hub_customer') }} as customer
     on customer.hmd5_customer = link.hmd5_customer
 inner join {{ ref('hub_product') }} as product
-    on product.hmd5_product_code = link.hmd5_product_code
+    on product.hmd5_product = link.hmd5_product
 inner join {{ ref('hub_country') }} as country
-    on country.hmd5_country_code = link.hmd5_country_code
+    on country.hmd5_country = link.hmd5_country
 inner join {{ ref('hub_state') }} as state
-    on state.hmd5_state_code = link.hmd5_state_code
+    on state.hmd5_state = link.hmd5_state

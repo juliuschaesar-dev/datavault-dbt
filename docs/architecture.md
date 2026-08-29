@@ -105,16 +105,16 @@ everything descriptive. Joins are on MD5 hashes throughout.
 ```mermaid
 erDiagram
     hub_customer ||--o{ link_superstore : hmd5_customer
-    hub_product  ||--o{ link_superstore : hmd5_product_code
-    hub_country  ||--o{ link_superstore : hmd5_country_code
-    hub_state    ||--o{ link_superstore : hmd5_state_code
+    hub_product  ||--o{ link_superstore : hmd5_product
+    hub_country  ||--o{ link_superstore : hmd5_country
+    hub_state    ||--o{ link_superstore : hmd5_state
 
     link_superstore ||--o{ satellite_superstore : lmd5_superstore
 
     hub_customer ||--o{ satellite_superstore_customer : hmd5_customer
-    hub_product  ||--o{ satellite_superstore_product  : hmd5_product_code
-    hub_country  ||--o{ satellite_superstore_country  : hmd5_country_code
-    hub_state    ||--o{ satellite_superstore_state    : hmd5_state_code
+    hub_product  ||--o{ satellite_superstore_product  : hmd5_product
+    hub_country  ||--o{ satellite_superstore_country  : hmd5_country
+    hub_state    ||--o{ satellite_superstore_state    : hmd5_state
 
     hub_customer {
         text hmd5_customer PK "md5(customer_id)"
@@ -126,9 +126,9 @@ erDiagram
     link_superstore {
         text lmd5_superstore PK "md5 over all four keys"
         text hmd5_customer FK
-        text hmd5_country_code FK
-        text hmd5_state_code FK
-        text hmd5_product_code FK
+        text hmd5_country FK
+        text hmd5_state FK
+        text hmd5_product FK
         timestamp load_timestamp
         text record_source
     }
@@ -271,7 +271,7 @@ flowchart LR
     A["dbt seed"] --> B["bronze<br/>rebuild"]
     B --> C["silver<br/>append what is new"]
     C --> D["gold<br/>rebuild from vault"]
-    D --> E["140 data tests<br/>4 of them reconciliation"]
+    D --> E["147 data tests<br/>4 of them reconciliation"]
 ```
 
 The reconciliation tests are the ones that matter: row counts and

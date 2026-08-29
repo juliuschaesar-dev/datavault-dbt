@@ -111,6 +111,8 @@ models:
               arguments:
                 to: ref('dim_period')
                 field: date_key
+      - name: ship_mode
+        data_tests: [not_null]
       - name: region
         data_tests:
           - not_null
@@ -120,6 +122,10 @@ models:
       - name: sales
         data_tests: [not_null]
       - name: quantity
+        data_tests: [not_null]
+      - name: discount
+        data_tests: [not_null]
+      - name: profit
         data_tests: [not_null]
 
   - name: dm_superstore
